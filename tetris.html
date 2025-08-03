@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="ja">
+	<head>
+		<meta charset="utf-8">
+		<title>テトリス</title>
+		<link rel="stylesheet" type="text/css" href="tetris.css">
+	</head>
+	<body bgcolor="#333">
+		<pre id="tit" style="text-align: center;">
+##### ##### ##### ####   ###   ####
+  #   #       #   #   #   #   #    
+  #   #####   #   ####    #    ### 
+  #   #       #   #   #   #       #
+  #   #####   #   #   #  ###  #### 
+		</pre>
+		<form id="title_menu" style="text-align: center;">
+			<input type="button" id="start" value="Start" onclick="ReStart(this.form)"><br>
+			BGM<input type="range" id="volume" value="100"><br>
+			SE<input type="range" id="se" value="100"><br>
+		</form>			
+		<canvas id="cv" width=450 height="600" style="margin-right: 100px;"></canvas>
+		<div id="score" style="text-align: center;"></div>
+		<div id="comb" style="text-align: center;"></div>
+		<div id="high-score" style="text-align: center;"></div>
+		<form id="End" style="text-align: center;">
+			<input type="button" id="continue" value="Continue" onclick="ReStart()"><br>
+			<input type="button" id="back" value="Back" onclick="BackToTitle()"><br>
+		</form>
+		<script>
+//						Buddha.
+//
+//                       _oo0oo_
+//                      o8888888o
+//                      88" . "88
+//                      (| -_- |)
+//                      0\  =  /0
+//                    ___/`---'\___
+//                  .' \\|     |// '.
+//                 / \\|||  :  |||// \
+//                / _||||| -:- |||||- \
+//               |   | \\\  -  /// |   |
+//               | \_|  ''\---/''  |_/ |
+//               \  .-\__  '-'  ___/-. /
+//             ___'. .'  /--.--\  `. .'___
+//          ."" '<  `.___\_<|>_/___.' >' "".
+//         | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+//         \  \ `_.   \_ __\ /__ _/   .-` /  /
+//     =====`-.____`.___ \_____/___.-`___.-'=====
+//                       `=---='
+			const music = new Audio("tetris.mp3");
+			const line_audio = new Audio("line.mp3");
+			const move_audio = new Audio("move.mp3");
+			const roll_audio = new Audio("roll.mp3");
+			const set_audio = new Audio("set.mp3");
+			music.loop = true;
+			var next = [0, 1, 2, 3, 4, 5, 6];
+			var sche = new Array(7).fill(-1);
+			initNext();
+			var step = 0;
+			var speed = 52;
+			var fall = 52;
+			let x = 3, y = 0;
+			canvas = document.getElementById("cv");
+			canvas.style.display = 'none';
+			ctx = canvas.getContext("2d");
+			var score = 0;
+			var type = 0;
+			let monitor = new Array(20);
+			let color = new Array(20);
+			let now_mino = new Array(4);
+			var s_time;
+			var txt = document.getElementById("score");
+			var com_txt = document.getElementById("comb");
+			var pause = false;
+			var combo = 0;
+			var level = 1;
+			var delete_line = 0;
+			var ori_x;
+			var ori_mino = new Array(4);
+			var Over = false;
+			var over_num = 0;
+			del_animation = false;
+			var del = new Array(4);
+			var ti = 0;
+			var menus = document.getElementById("title_menu");
+			var cont = document.getElementById("End");
+			var rogo = document.getElementById("tit")
+			cont.style.display = 'none';
+			var FrameOff = false;
+			var high;
+			let highScore = localStorage.getItem('_highScore');
+			if(highScore == null){
+				highScore = 0;
+				localStorage.setItem('_highScore', highScore);
+			}
+			high_txt = document.getElementById("high-score");
+			high_txt.style.display = 'block';
+			high_txt.innerHTML = `HighScore : ${highScore}`
+			ctx.translate(50, 0);
+			
+			ctx.fillStyle = "#fff";
+			ctx.fillRect(308, 0, 4, 40);
+			ctx.fillRect(324, 0, 4, 40);
+			ctx.fillRect(332, 0, 4, 40);
+			ctx.fillRect(312, 8, 4, 8);
+			ctx.fillRect(316, 16, 4, 8);
+			ctx.fillRect(320, 24, 4, 8);
+			ctx.fillRect(332, 0, 16, 4);
+			ctx.fillRect(332, 16, 16, 4);
+			ctx.fillRect(332, 36, 16, 4);
+			ctx.fillRect(352, 0, 4, 8);
+			ctx.fillRect(356, 8, 4, 8);
+			ctx.fillRect(364, 8, 4, 8);
+			ctx.fillRect(368, 0, 4, 8);
+			ctx.fillRect(360, 16, 4, 8);
+			ctx.fillRect(352, 32, 4, 8);
+			ctx.fillRect(356, 24, 4, 8);
+			ctx.fillRect(364, 24, 4, 8);
+			ctx.fillRect(368, 32, 4, 8);
+			ctx.fillRect(378, 0, 20, 4);
+			ctx.fillRect(386, 0, 4, 40);
+			for(var i = 0; i < 4; i ++){
+				now_mino[i] = new Array(4).fill(0);
+				ori_mino[i] = new Array(4).fill(0);
+			}
+			for(var i = 0; i < 20; i ++){
+				monitor[i] = new Array(10).fill(0);
+				color[i] = new Array(10).fill(-1);
+			}
+
+			function initNext(){
+				var rnd = Math.floor(Math.random() * 100) + 100;
+				var chang;
+				var tmp;
+				for(var i = 0; i < rnd; i ++){
+					for(var j = 0; j < 7; j ++){
+						chang = Math.floor(Math.random() * 7);
+						tmp = next[j];
+						next[j] = next[chang];
+						next[chang] = tmp;
+					}
+				}
+			}
+
+			TimeFrame();
+	  
+			function TimeFrame(){
+				ti ++;
+				window.requestAnimationFrame(TimeFrame);
+			}
+
+			function FrameProc(){ //Update
+					if(Over){
+						Draw();
+					}
+					else{
+						if(!pause)
+							fall --;
+						if(fall <= 0){
+							if(CanFall() == 1){
+									fall = speed;
+									y ++;
+									Draw();
+							}
+							else{
+								if(ExistOnMonitor(true) == 1){
+									Over = true;
+									if(score > highScore){
+										highScore = score;
+										localStorage.setItem('HighScore', highScore);
+									}
+								}
+								else{
+									set_audio.play();
+									ResetTop(true);
+								}
+							}
+						}
+					}
+					Draw();
+					window.requestAnimationFrame(FrameProc);
+			}
+
+			function CanFall(){
+				var max_y = 0;
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						if(now_mino[i][j] == 1 && i > max_y)
+							max_y = i;
+					}
+				}
+				// if(y < 0) return -1;
+				if(y >= 19 - max_y || ExistMinoUnder() == 1) return 0;
+				return 1;
+			}
+
+			function ExistMinoUnder(){
+				for(var i = 0; i < 4; i ++){
+					if (MaxY(i) == -1)
+						continue;
+					if(monitor[y + MaxY(i) + 1][x + i] == 1){
+						return 1;
+					}
+				}
+				return 0;
+			}
+			function ExistMinoRight(){
+				for(var i = 0; i < 4; i ++){
+					if(MaxX(i) == -1)
+						continue;
+					if(MaxX(i) != 0 && monitor[y + i][x + 1 + MaxX(i)] == 1){
+						return 1;
+					}
+				}
+				return 0;
+			}
+			function ExistMinoLeft(){
+				for(var i = 0; i < 4; i ++){
+					if(MinX(i) == 4)
+						continue;
+					if(MinX(i) != 3 && monitor[y + i][x - 1 + MinX(i)] == 1){
+						return 1;
+					}
+				}
+				return 0;
+			}
+			function MaxX(index){
+				var max_x = -1;
+				for(var i =0; i < 4; i ++){
+					if(now_mino[index][i] == 1 && i > max_x)
+						max_x = i;
+				}
+				return max_x;
+			}
+			function MinX(index){
+				var min_x = 4;
+				for(var i =0; i < 4; i ++){
+					if(now_mino[index][i] == 1 && i < min_x)
+						min_x = i;
+				}
+				return min_x;
+			}
+			function MaxY(index){
+				var max_y = -1;
+				for(var i =0; i < 4; i ++){
+					if(now_mino[i][index] == 1 && i > max_y)
+						max_y = i;
+				}
+				return max_y;
+			}
+			function MinY(index){
+				var min_y = 4;
+				for(var i =0; i < 4; i ++){
+					if(now_mino[i][index] == 1 && i < min_y)
+						min_y = i;
+				}
+				return min_y;
+			}
+			function MaxMino(){
+				var max_x = 0;
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						if(now_mino[i][j] == 1 && j > max_x)
+						max_x = j;
+					}
+				}
+				return max_x;
+			}
+			function MinMino(){
+				var min_x = 3;
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						if(now_mino[i][j] == 1 && j < min_x)
+						min_x = j;
+					}
+				}
+				return min_x;
+			}
+			function ExistOnMonitor(Gameover){
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						if(y + i > 19){
+							if(Gameover) break;
+							else return 1;
+						}
+						if(y + i >= 0){
+							if(monitor[y + i][x + j] == 1 && now_mino[i][j] == 1)
+								return 1;
+						}
+					}
+				}
+				return 0;
+			}
+			function ReStart(myForm) { //Start
+				txt.style.display = 'block';
+				high_txt.style.display = 'none';
+				com_txt.style.display = 'block';
+				over_num = 0;
+				FrameOff = true;
+				Over = false;
+				for(var i = 0; i < 20; i ++){
+					for(var j = 0; j < 10; j ++){
+						monitor[i][j] = 0;
+						color[i][j] = 0;
+					}
+				}
+				level = 1;
+				combo = 0;
+				delete_line = 0;
+				ti = 0;
+				score = 0;
+				menus.style.display = 'none';
+				canvas.style.display = 'inline';
+				rogo.style.display = 'none';
+				cont.style.display = 'none';
+				if (typeof myForm != "undefined") {
+                	music.volume = myForm.volume.value / 100;
+                	line_audio.volume = myForm.se.value / 100;
+                	move_audio.volume = myForm.se.value / 100;
+                	roll_audio.volume = myForm.se.value / 100;
+                	set_audio.volume = myForm.se.value / 100;
+                	music.play();
+           		}
+				s_time = new Date();
+				init_mino(type);
+				FrameProc()
+				Draw();
+				NextDraw();
+
+				document.onkeydown = function (e){ //keys
+					switch(e.keyCode){
+						case 27:{
+							if(!Over){
+								pause = !pause;
+								if(pause){
+									music.pause();
+								}
+								else music.play();
+							}
+							break;
+							
+						}
+						case 37:{ //left
+							if(!pause && x > -MinMino() && ExistMinoLeft() == 0){
+								move_audio.currentTime = 0;
+								move_audio.play();
+								x --;
+							}
+							break;
+						}
+						case 38:{ //up
+							roll();
+							if(ExistOnMonitor(false) == 1){
+								for(var i = 0; i < 4; i ++){
+									for(var j = 0; j < 4; j ++){
+										now_mino[i][j] = ori_mino[i][j];
+									}
+								}
+								x = ori_x;
+							}
+							else{
+								roll_audio.currentTime = 0;
+								roll_audio.play();
+							}
+							break;
+						}
+						case 39:{ //right
+							if(!pause && x < 9-MaxMino() && ExistMinoRight() == 0){
+								move_audio.currentTime = 0;
+								move_audio.play();
+								x ++;
+							}
+							break;
+						}
+						case 40:{ //down
+							if(!pause){
+								if(CanFall() == 1){
+									score ++;
+									y ++;
+								}
+								else{
+									if(ExistOnMonitor(true) == 1){
+										music.pause();
+										if(score > highScore){
+											highScore = score;
+											localStorage.setItem('_highScore', highScore);
+										}
+										Over = true;
+									}
+									else{
+										set_audio.currentTime = 0;
+										set_audio.play();
+										ResetTop(true);
+									}
+								}
+							}
+							break;
+						}
+					}
+					Draw();
+				}
+			}
+
+			function BackToTitle(){
+				menus.style.display = 'inline';
+				rogo.style.display = 'block';	
+				canvas.style.display = 'none';
+				cont.style.display = 'none';
+				txt.style.display = 'none';
+				com_txt.style.display = 'none';
+				high_txt.style.display = 'block';
+				high_txt.innerHTML = `HighScore : ${highScore}`
+				music.pause();
+    			music.currentTime = 0;
+			}
+
+			function NextDraw(){
+				ctx.fillStyle = "#333";
+				ctx.fillRect(310, 60, 80, 540);
+				for(var i = 0; i < 5; i ++){
+					switch(next[i]){
+						case 0:{
+							ctx.fillStyle = "#7fffd4";
+							ctx.fillRect(310, 100 + 80 * i, 80, 20);
+							break;
+						}
+						case 1:{
+							ctx.fillStyle = "#ffd700";
+							ctx.fillRect(330, 80 + 80 * i, 40, 40);
+							break;
+						}
+						case 2:{
+							ctx.fillStyle = "#8a2be2";
+							ctx.fillRect(310, 100 + 80 * i, 60, 20);
+							ctx.fillRect(330, 80 + 80 * i, 20, 20);
+							break;
+						}
+						case 3:{
+							ctx.fillStyle = "#ff8c00";
+							ctx.fillRect(310, 100 + 80 * i, 60, 20);
+							ctx.fillRect(350, 80 + 80 * i, 20, 20);
+							break;
+						}
+						case 4:{
+							ctx.fillStyle = "#0000cd";
+							ctx.fillRect(310, 100 + 80 * i, 60, 20);
+							ctx.fillRect(310, 80 + 80 * i, 20, 20);
+							break;
+						}
+						case 5:{
+							ctx.fillStyle = "#dc143c";
+							ctx.fillRect(310, 100 + 80 * i, 40, 20);
+							ctx.fillRect(330, 120 + 80 * i, 40, 20);
+							break;
+						}
+						case 6:{
+							ctx.fillStyle = "#7cfc00";
+							ctx.fillRect(330, 100 + 80 * i, 40, 20);
+							ctx.fillRect(310, 120 + 80 * i, 40, 20);
+							break;
+						}
+					}
+				}
+			}
+			
+			function CheckLine(){
+				for(var i = 0; i < 4; i ++){
+					del[i] = -1;
+				}
+				var tmp;
+				var sum = 0;
+				var base = 0;
+				for(var i = 0; i < 20; i ++){
+					if(check(i) == 1){
+						del[sum] = i;
+						sum ++;
+					}
+				}
+
+				if(sum == 4){
+					line_audio.currentTime = 0;
+					line_audio.play();
+				}
+
+				// if(sum > 0){
+				// 	del_animation = true;
+				// 	Draw();
+				// }
+
+				for(var i = 0; i < 4; i ++){
+					if(del[i] != -1){
+						for(var j = 0; j < 10; j ++){
+							monitor[del[i]][j] = 0;
+							color[del[i]][j] = -1;
+						}
+						for(var j = del[i]; j >= 1; j--){
+							for(var line_x = 0; line_x < 10; line_x ++){
+								tmp = monitor[j][line_x];
+								monitor[j][line_x] = monitor[j - 1][line_x];
+								monitor[j - 1][line_x] = tmp;
+								tmp = color[j][line_x];
+								color[j][line_x] = color[j - 1][line_x];
+								color[j - 1][line_x] = tmp;
+							}
+						}
+					}
+					else break;
+				}
+				function check(h){
+					for(var j = 0; j < 10; j ++){
+						if(monitor[h][j] == 0) return 0;
+					}
+					return 1;
+				}
+				switch(sum){
+					case 1:{
+						base = 100;
+						break;
+					}
+					case 2:{
+						base = 300;
+						break;
+					}
+					case 3:{
+						base = 500;
+						break;
+					}
+					case 4:{
+						base = 800;
+						break;
+					}
+				}
+				score += base * level;
+				if(sum > 0)					
+					combo ++;
+				else combo = 0;
+				if(combo > 0 )score += 50 * (combo - 1);
+				delete_line += 10 * sum;
+				if(level > 10){
+					if(delete_line > 100){
+						level ++;
+						delete_line -= 100;
+					}
+				}
+				else if(delete_line > 10 * level){
+					level ++;
+					delete_line -= 10 * level;
+				}
+				speed = 54 - 2 * level;
+			}
+			function ResetTop(moni){
+				if(moni) CopyToMonitor();
+				var tmp;
+				type = next[0];
+				for(var i = 0; i < 6; i ++){
+					tmp = next[i];
+					next[i] = next[i + 1];
+					next[i + 1 ] = tmp;
+				}
+				tmp = next[6];
+				next[6] = sche[0];
+				sche[0] = tmp;
+				for(var j = 0; j < 6; j ++){
+					tmp = sche[j];
+					sche[j] = sche[j + 1];
+					sche[j + 1] = sche[j];
+				}
+				sche[6] = -1;
+				if(next[4] == -1){ //bug
+					sche = [0, 1, 2, 3, 4, 5, 6];
+					var rnd = Math.floor(Math.random() * 100) + 100;
+					for (var i = 0; i < rnd; i++) {
+						for (var j = 6; j > 0; j--) {
+							var k = Math.floor(Math.random() * (j + 1));
+							tmp = sche[j];
+							sche[j] = sche[k];
+							sche[k] = tmp;
+						}
+					}
+					for(var i = 0; i < 3; i ++){
+						next[4 + i] = sche[0];
+						for(var j = 0; j < 6; j ++){
+							tmp = sche[j];
+							sche[j] = sche[j + 1];
+							sche[j + 1] = tmp;
+						}
+						sche[6] = -1;
+					}
+				}
+				y = 0;
+				x = 3;
+				init_mino(type);
+				var min = MinY(0);
+				for(var i = 1; i < 4; i ++){
+					if(min > MinY(i)){
+						min = MinY(i);
+					}
+				}
+				y -= min;
+				
+				NextDraw();
+				if(moni){
+					CheckLine();
+					Draw();
+				}
+			}
+
+			function MaxMonitor(){
+				var min_y_ = 10;
+				for(var i = 0; i < 10; i ++){
+					for(var j = 0; j < 20; j ++){
+						if(monitor[i][j] == 1 && i < min_y_)
+							min_y_ = i;
+					}
+				}
+				return min_y_;
+			}
+			
+			function roll(){
+				ori_x = x;
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						ori_mino[i][j] = now_mino[i][j];
+					}
+				}
+				var q = 0;
+				var tmp = new Array(4);
+				for(var i = 0; i < 4; i ++){
+					tmp[i] = new Array(4);
+				}
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						tmp[j][i] = now_mino[3-i][j];
+					}
+				}
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						now_mino[i][j] = tmp[i][j];
+					}
+				}
+				if(x + MinMino() < 0){
+					q = Math.abs(x + MinMino());
+				}
+				else if(x + MaxMino() > 9){
+					q = -(x + MaxMino() - 9);
+				}
+				if(ExistOnMonitor(false) == 0){
+					x += q;
+				}
+			}
+			function init_mino(t){
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						now_mino[i][j] = 0;
+					}
+				}
+				switch(t){
+					case 0:{ //i
+						for(var i = 0; i < 4; i ++){
+								now_mino[2][i] = 1;
+						}
+						break;
+					}
+					case 1:{ //o
+						for(var i = 0; i < 2; i ++){
+							for(var j = 0; j < 2; j ++){
+								now_mino[1+i][1+j] = 1;
+							}
+						}
+						break;
+					}
+					case 2:{ //T
+						for(var i = 0; i < 3; i ++) now_mino[2][i] = 1;
+						now_mino[1][1] = 1;
+						break;
+					}
+					case 3:{ //L
+						for(var i = 0; i < 3; i ++) now_mino[2][i] = 1;
+						now_mino[1][2] = 1;
+						break;
+					}
+					case 4:{ //J
+						for(var i = 0; i < 3; i ++) now_mino[2][i] = 1;
+						now_mino[1][0] = 1;
+						break;
+					}
+					case 5:{ //z
+						for(var i = 0; i < 2; i ++){
+							for(var j = 0; j < 2; j ++){
+								now_mino[1+i][i + j] = 1;
+							}
+						}
+						break;
+					}
+					case 6:{ //s
+						for(var i = 0; i < 2; i ++){
+							now_mino[1][1+ i] = 1;
+							now_mino[2][i] = 1;
+						}
+						break;
+					}
+				}
+			}
+			function ExistMino(posx, posy){
+				if(posx > 3 || posy > 3 || posx < 0 || posy < 0){
+					return -1;
+				}
+				else return now_mino[posy][posx];
+			}
+			function Draw(){ //描画
+				ctx.clearRect(0, 0, 300, 600);
+				if(pause){
+					ctx.fillStyle = "#ddd";
+					ctx.fillRect(0, 0, 300, 600);
+					ctx.fillStyle = "#000";
+					//ctx.fillRect(100, 280, 100, 40);
+					ctx.fillRect(100, 280, 4, 40);
+					ctx.fillRect(100, 280, 12, 4);
+					ctx.fillRect(100, 296, 12, 4);
+					ctx.fillRect(112, 284, 4, 12);
+					ctx.fillRect(120, 284, 4, 36);
+					ctx.fillRect(132, 284, 4, 36);
+					ctx.fillRect(124, 280, 8, 4);
+					ctx.fillRect(124, 296, 8, 4);
+					ctx.fillRect(140, 280, 4, 36);
+					ctx.fillRect(144, 316, 8, 4);
+					ctx.fillRect(152, 280, 4, 36);
+					ctx.fillRect(160, 284, 4, 12);
+					ctx.fillRect(172, 284, 4, 8);
+					ctx.fillRect(164, 280, 8, 4);
+					ctx.fillRect(164, 296, 8, 4);
+					ctx.fillRect(164, 316, 8, 4);
+					ctx.fillRect(172, 300, 4, 16);
+					ctx.fillRect(160, 308, 4, 8);
+					ctx.fillRect(180, 280, 4, 40);
+					ctx.fillRect(180, 280, 16, 4);
+					ctx.fillRect(180, 296, 16, 4);
+					ctx.fillRect(180, 316, 16, 4);
+				}
+				else{
+					for(var i = 0; i < 20; i ++){
+						for(var j = 0; j < 10; j ++){
+							if(ExistMino(j - x, i - y) == 1){
+								switch(type){
+									case 0:{
+										ctx.fillStyle = "#7fffd4";
+										break;
+									}
+									case 1:{
+										ctx.fillStyle = "#ffd700";
+										break;
+									}
+									case 2:{
+										ctx.fillStyle = "#8a2be2";
+										break;
+									}
+									case 3:{
+										ctx.fillStyle = "#ff8c00";
+										break;
+									}
+									case 4:{
+										ctx.fillStyle = "#0000cd";
+										break;
+									}
+									case 5:{
+										ctx.fillStyle = "#dc143c";
+										break;
+									}
+									case 6:{
+										ctx.fillStyle = "#7cfc00";
+										break;
+									}
+								}
+							}
+							else if(monitor[i][j] != 0){
+								switch(color[i][j]){
+									case 0:{
+										ctx.fillStyle = "#7fffd4";
+										break;
+									}
+									case 1:{
+										ctx.fillStyle = "#ffd700";
+										break;
+									}
+									case 2:{
+										ctx.fillStyle = "#8a2be2";
+										break;
+									}
+									case 3:{
+										ctx.fillStyle = "#ff8c00";
+										break;
+									}
+									case 4:{
+										ctx.fillStyle = "#0000cd";
+										break;
+									}
+									case 5:{
+										ctx.fillStyle = "#dc143c";
+										break;
+									}
+									case 6:{
+										ctx.fillStyle = "#7cfc00";
+										break;
+									}
+								}
+							}
+							else{
+								if(MaxMonitor() < 6)
+									ctx.fillStyle = `rgb(${200 * Math.sin(ti/10)}, 0, ${85 * Math.sin(ti/100 + i/10)})`;
+								else
+									ctx.fillStyle = `rgb(0, 0, ${85 * Math.sin(ti/100 + i/10)})`;
+							}
+							ctx.fillRect(30 * j, 30 * i, 30, 30);
+							if(monitor[i][j] == 1){
+								if(color[i][j] == 4) ctx.strokeStyle = '#fff';
+								else ctx.strokeStyle = '#000';
+								ctx.strokeRect(30 * j  + 5, 30 * i+ 5, 20, 20);
+							}
+							if(ExistMino(j - x, i - y) == 1){
+								if(type == 4) ctx.strokeStyle = '#fff';
+								else ctx.strokeStyle = '#000';
+								ctx.strokeRect(30 * j  + 5, 30 * i+ 5, 20, 20);
+							}
+							ctx.strokeStyle = '#fff';
+							ctx.strokeRect(30 * j, 30 * i, 30, 30);
+						}
+					}
+					if(del_animation){
+						// for(var i = 0; i < 4; i ++){
+						// 	if(del[i] != -1){
+						// 		ctx.fillStyle = '#f00';
+						// 		ctx.fillRect(0, 30 * del[i], 300, 30);
+						// 	}
+						// }
+						del_animation = false;
+					}
+					else if(Over){
+						for(var f = 0; f < over_num/5; f ++){
+							ctx.fillStyle = `rgb(${50 * Math.sin(ti/10 +  f/10) + 100}, ${50 * Math.sin(ti/10 +  f/10) + 100}, ${50 * Math.sin(ti/10 +  f/10) + 100})`;
+							ctx.fillRect(0, 600 - 30 * f, 300, 30);
+						}
+						over_num ++;
+						if(over_num > 100){ //8
+							ctx.fillStyle = '#000';
+							ctx.fillRect(70, 224, 8, 64);
+							ctx.fillRect(78, 216, 16, 8);
+							ctx.fillRect(94, 224, 8, 16);
+							ctx.fillRect(78, 288, 16, 8);
+							ctx.fillRect(94, 256, 8, 40);
+							ctx.fillRect(86, 256, 8, 8);
+							ctx.fillRect(108, 224, 8, 72);
+							ctx.fillRect(132, 224, 8, 72);
+							ctx.fillRect(116, 216, 16, 8);
+							ctx.fillRect(116, 240, 16, 8);
+							ctx.fillRect(148, 216, 8, 80);
+							ctx.fillRect(180, 216, 8, 80);
+							ctx.fillRect(156, 240, 8, 16);
+							ctx.fillRect(172, 240, 8, 16);
+							ctx.fillRect(164, 256, 8, 16);
+							ctx.fillRect(196, 216, 8, 80);
+							ctx.fillRect(196, 216, 32, 8);
+							ctx.fillRect(196, 248, 32, 8);
+							ctx.fillRect(196, 288, 32, 8);
+							ctx.fillRect(70, 312, 8, 64);
+							ctx.fillRect(94, 312, 8, 64);
+							ctx.fillRect(78, 304, 16, 8);
+							ctx.fillRect(78, 376, 16, 8);
+							ctx.fillRect(110, 304, 8, 40);
+							ctx.fillRect(142, 304, 8, 40);
+							ctx.fillRect(118, 344, 8, 24);
+							ctx.fillRect(134, 344, 8, 24);
+							ctx.fillRect(126, 368, 8, 16);
+							ctx.fillRect(158, 304, 8, 80);
+							ctx.fillRect(158, 304, 32, 8);
+							ctx.fillRect(158, 336, 32, 8);
+							ctx.fillRect(158, 376, 32, 8);
+							ctx.fillRect(198, 304, 8, 80);
+							ctx.fillRect(198, 304, 24, 8);
+							ctx.fillRect(198, 336, 24, 8);
+							ctx.fillRect(222, 312, 8, 24);
+							ctx.fillRect(222, 344, 8, 40);
+							if(over_num == 101) cont.style.display = 'block';
+						}
+					}
+
+					txt.innerHTML = `<h4>score : ${score}<br>Level : ${level}</h4>`;
+					if(combo > 1) com_txt.innerHTML = `<h4><span style="color: red;">${combo} REN!!</span></h4>`;
+					else com_txt.innerHTML = " ";
+				}
+			}
+			function CopyToMonitor(){
+				for(var i = 0; i < 4; i ++){
+					for(var j = 0; j < 4; j ++){
+						if(now_mino[i][j] == 1){
+							monitor[y + i][x + j] = 1;
+							color[y + i][x + j] = type;
+						}
+					}
+				}
+			}
+		</script>
+	</body>
+</html>

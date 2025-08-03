@@ -1,0 +1,13 @@
+body{
+    color : white;
+    font-family: "ドットゴシック16";
+    font-size: 16px;
+    line-height: 20px;
+    width:400px;
+    margin: auto;
+}
+
+@font-face {
+    font-family: "ドットゴシック16";
+    src: url(DotGothic16-Regular.ttf);
+}
